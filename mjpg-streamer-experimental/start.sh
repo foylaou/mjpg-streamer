@@ -27,7 +27,35 @@
 export LD_LIBRARY_PATH="$(pwd)"
 #./mjpg_streamer -i "input_uvc.so --help"
 
-./mjpg_streamer -i "./input_uvc.so" -o "./output_http.so -w ./www"
+# Trap Ctrl+C (SIGINT) and SIGTERM to properly shutdown
+cleanup() {
+    echo ""
+    echo "Shutting down mjpg_streamer..."
+    if [ ! -z "$MJPG_PID" ]; then
+        kill $MJPG_PID 2>/dev/null
+        wait $MJPG_PID 2>/dev/null
+    fi
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
+
+# Use libcamera for Raspberry Pi cameras (modern libcamera-based systems)
+# Starting with lower resolution for testing
+./mjpg_streamer -i "./input_libcamera.so -x 640 -y 480 -fps 15" -o "./output_http.so -w ./www" &
+MJPG_PID=$!
+
+echo "mjpg_streamer started (PID: $MJPG_PID)"
+echo "Press Ctrl+C to stop"
+
+# Wait for the process
+wait $MJPG_PID
+
+# For higher resolution (requires more CPU):
+#./mjpg_streamer -i "./input_libcamera.so -x 1920 -y 1080 -fps 30" -o "./output_http.so -w ./www"
+
+# For USB webcams, use input_uvc instead:
+#./mjpg_streamer -i "./input_uvc.so" -o "./output_http.so -w ./www"
 #./mjpg_streamer -i "./input_uvc.so -n -f 30 -r 1280x960"  -o "./output_http.so -w ./www" 
 #./mjpg_streamer -i "./input_uvc.so -n -f 30 -r 640x480 -d /dev/video0"  -o "./output_http.so -w ./www" &
 #./mjpg_streamer -i "./input_uvc.so -d /dev/video0" -i "./input_uvc.so -d /dev/video1" -o "./output_http.so -w ./www"
